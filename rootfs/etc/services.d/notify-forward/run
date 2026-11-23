@@ -1,2 +1,3 @@
 #!/bin/sh
-exec /usr/local/bin/notify-forward
+export PYTHONPATH=/opt/qq-notify-forward
+exec python3 -m qq_notify_forward run

@@ -18,8 +18,7 @@ RUN add-pkg curl ca-certificates \
     && set-cont-env APP_VERSION "$(dpkg-query -W -f='${Version}' linuxqq)"
 
 COPY --chmod=755 startapp.sh /startapp.sh
-COPY --chmod=755 notify-forward.py /usr/local/bin/notify-forward
-COPY notify-page/index.html /usr/local/share/notify-forward/index.html
+COPY src/qq_notify_forward /opt/qq-notify-forward/qq_notify_forward
 COPY rootfs/ /
 
 # The settings page sits inside the base image's server block so that its

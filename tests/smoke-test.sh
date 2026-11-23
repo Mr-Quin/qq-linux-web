@@ -79,7 +79,7 @@ docker run -d --name "$name" \
     -e USER_ID=1000 -e GROUP_ID=1000 \
     -e WEB_AUTHENTICATION=1 -e WEB_AUTHENTICATION_USERNAME=smoke -e WEB_AUTHENTICATION_PASSWORD=smoke-test-only \
     --add-host discord.com:127.0.0.1 \
-    -v "$config:/config" -v "$here/mock-discord.py:/smoke/mock-discord.py:ro" \
+    -v "$config:/config" -v "$here/mock_webhook.py:/smoke/mock_webhook.py:ro" \
     --shm-size 1g --security-opt seccomp=unconfined \
     "$image" >/dev/null
 
@@ -107,7 +107,8 @@ wait_for "QQ did not come back when a viewer connected" 8 qq_visible
 wait_for "QQ was not hidden again after the viewer left" 30 qq_hidden
 echo "ok: QQ hides while nobody watches, so it sends notifications, and comes back for a viewer"
 
-docker exec -u 0 -d "$name" python3 /smoke/mock-discord.py
+docker exec -u 0 -d "$name" python3 /smoke/mock_webhook.py --port 443 \
+    --log /tmp/discord-posts.jsonl --tls /config/certs/web-fullchain.pem /config/certs/web-privkey.pem
 wait_for "mock Discord did not start" 15 docker exec "$name" curl -fsk -o /dev/null -X POST -H "Content-Length: 2" -d '{}' https://127.0.0.1/ping
 docker exec -u 0 "$name" rm -f /tmp/discord-posts.jsonl
 
