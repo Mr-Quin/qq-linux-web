@@ -1,6 +1,6 @@
 services:
   qq:
-    image: DOCKERHUB_USER/qq-linux-web:latest
+    image: mrquin/qq-linux-web:latest
     container_name: qq
     hostname: qq
     environment:
