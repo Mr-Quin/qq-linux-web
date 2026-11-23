@@ -1,7 +1,6 @@
-.git
-.github
-tests
-scripts
-*.md
-LICENSE
-docker-compose.yml
+*
+!Dockerfile
+!startapp.sh
+!rootfs/
+!src/
+**/__pycache__

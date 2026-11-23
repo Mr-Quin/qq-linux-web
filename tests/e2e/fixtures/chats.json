@@ -1,0 +1,4 @@
+{
+  "Noisy Group": {"count": 12, "last": 1700000000, "verdict": "dropped", "reason": "ignored chat"},
+  "Family": {"count": 3, "last": 1700000100, "verdict": "sent", "reason": "listed chat"}
+}

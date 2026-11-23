@@ -5,33 +5,68 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      qq_url:
-        type: string
-        default: ""
-      qq_sha512:
-        type: string
-        default: ""
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: uv sync --locked
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: shellcheck tests/*.sh scripts/*.sh startapp.sh rootfs/etc/services.d/*/run
+
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: uv sync --locked
+      - run: bun install --frozen-lockfile
+      - run: bun --bun x playwright install --with-deps chromium
+      - run: bun run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
+  image:
+    needs: [lint, unit, e2e]
     runs-on: ubuntu-24.04
     env:
       HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+      PUBLISH: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
     steps:
       - uses: actions/checkout@v7
 
+      - name: Pinned QQ version
+        id: pin
+        run: echo "sha512=$(sed -n 's/^ARG QQ_SHA512=//p' Dockerfile)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: .cache/qq
+          key: qq-deb-${{ steps.pin.outputs.sha512 }}
+
+      - name: Fetch QQ
+        run: scripts/fetch-qq.sh .cache/qq
+
       - name: Build
-        run: |
-          args=()
-          if [ -n "${{ inputs.qq_url }}" ]; then
-            args+=(--build-arg "QQ_URL=${{ inputs.qq_url }}" --build-arg "QQ_SHA512=${{ inputs.qq_sha512 }}")
-          fi
-          docker build "${args[@]}" -t qq-linux-web:test .
+        run: docker build --build-context qq-deb=.cache/qq -t qq-linux-web:test .
 
       - name: Smoke test
         run: tests/smoke-test.sh qq-linux-web:test
@@ -41,13 +76,13 @@ jobs:
         run: echo "qq=$(docker run --rm --entrypoint dpkg-query qq-linux-web:test -W -f='${Version}' linuxqq)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_DOCKERHUB == 'true'
+        if: env.PUBLISH == 'true' && env.HAS_DOCKERHUB == 'true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push to Docker Hub
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_DOCKERHUB == 'true'
+        if: env.PUBLISH == 'true' && env.HAS_DOCKERHUB == 'true'
         run: |
           image="${{ secrets.DOCKERHUB_USERNAME }}/qq-linux-web"
           for tag in latest "${{ steps.version.outputs.qq }}"; do

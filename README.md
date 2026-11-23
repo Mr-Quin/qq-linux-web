@@ -7,7 +7,7 @@
 - 腾讯发布的 Linux QQ 安装包，未做修改。
 - 基于 [jlesage/baseimage-gui](https://github.com/jlesage/docker-baseimage-gui) 的网页界面，只显示 QQ 窗口，可以开启用户名和密码登录。
 - 通知转发：把 QQ 的桌面通知发到 [Apprise](https://github.com/caronc/apprise) 支持的服务。在 `/notify/` 页面设置转发哪些聊天、按什么关键词过滤。
-- CI 每天检查一次 QQ 新版本，有新版本时构建、跑冒烟测试，然后发布镜像。
+- CI 每周检查一次 QQ 新版本，有新版本时自动开一个 PR，测试通过、合并后发布新镜像。
 
 ## 快速开始
 
@@ -115,6 +115,35 @@ webtop 是完整的 Linux 桌面。这个镜像只运行 QQ，另外带通知转
 
 **支持 ARM 吗？**
 暂时只有 x86_64（amd64）。
+
+## 开发
+
+工具版本写在 `mise.toml` 里，`mise install` 一次装好。
+
+| 目录 | 内容 |
+|---|---|
+| `src/qq_notify_forward/` | 通知转发程序和设置页 |
+| `tests/unit/` | 单元测试和 API 测试（pytest） |
+| `tests/e2e/` | 设置页的浏览器测试（Playwright） |
+| `tests/smoke-test.sh` | 启动整个镜像的冒烟测试，需要 Docker |
+| `tests/mock_webhook.py` | 各层测试共用的假 Webhook |
+
+```bash
+uv sync
+uv run pytest
+uv run ruff check src tests
+
+bun install
+bun --bun x playwright install chromium
+bun run test:e2e
+
+docker build -t qq-linux-web:dev .
+tests/smoke-test.sh qq-linux-web:dev
+```
+
+不想启动 QQ 也能调设置页：`uv run qq-notify-forward serve --settings /tmp/s.json --chats /tmp/c.json`，然后打开 `http://127.0.0.1:8081/`。
+
+镜像里的 Python 依赖来自 Ubuntu 24.04 的 apt，`pyproject.toml` 里的版本要和 apt 的保持一致。
 
 ## 声明
 

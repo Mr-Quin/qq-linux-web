@@ -8,3 +8,18 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    # These follow what Ubuntu 24.04's apt installs in the image, not PyPI.
+    ignore:
+      - dependency-name: apprise
+      - dependency-name: requests
+      - dependency-name: markdown
+      - dependency-name: pyyaml
+      - dependency-name: click
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly

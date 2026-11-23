@@ -1,3 +1,7 @@
+# Empty unless the build is given --build-context qq-deb=DIR holding a
+# linuxqq.deb, as scripts/fetch-qq.sh prepares. Otherwise QQ_URL is downloaded.
+FROM scratch AS qq-deb
+
 FROM jlesage/baseimage-gui:ubuntu-24.04-v4.14.0
 
 ARG QQ_URL=https://qqdl.gtimg.cn/qqfile/QQNT/9.9.37/beta/816b3c79/linuxqq_3.2.35-54395_amd64.deb
@@ -8,8 +12,10 @@ LABEL org.opencontainers.image.title="qq-linux-web" \
       org.opencontainers.image.source="https://github.com/Mr-Quin/qq-linux-web" \
       qq.url=$QQ_URL
 
-RUN add-pkg curl ca-certificates \
-    && curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 30 -o /tmp/linuxqq.deb "$QQ_URL" \
+RUN --mount=type=bind,from=qq-deb,target=/qq-deb \
+    add-pkg curl ca-certificates \
+    && if [ -f /qq-deb/linuxqq.deb ]; then cp /qq-deb/linuxqq.deb /tmp/linuxqq.deb; \
+       else curl -fsSL --retry 5 --retry-all-errors --connect-timeout 30 -o /tmp/linuxqq.deb "$QQ_URL"; fi \
     && echo "$QQ_SHA512  /tmp/linuxqq.deb" | sha512sum -c - \
     && add-pkg /tmp/linuxqq.deb fonts-noto-cjk libgbm1 libasound2t64 libnotify4 python3-dbus python3-gi apprise xdotool x11-utils \
     && rm /tmp/linuxqq.deb \
@@ -18,8 +24,7 @@ RUN add-pkg curl ca-certificates \
     && set-cont-env APP_VERSION "$(dpkg-query -W -f='${Version}' linuxqq)"
 
 COPY --chmod=755 startapp.sh /startapp.sh
-COPY --chmod=755 notify-forward.py /usr/local/bin/notify-forward
-COPY notify-page/index.html /usr/local/share/notify-forward/index.html
+COPY src/qq_notify_forward /opt/qq-notify-forward/qq_notify_forward
 COPY rootfs/ /
 
 # The settings page sits inside the base image's server block so that its

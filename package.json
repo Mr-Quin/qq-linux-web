@@ -1,0 +1,12 @@
+{
+  "name": "qq-linux-web-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "bun --bun playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/bun": "^1"
+  }
+}

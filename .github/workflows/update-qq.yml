@@ -2,55 +2,55 @@ name: update-qq
 
 on:
   schedule:
-    - cron: "17 3 * * *"
+    - cron: "17 3 * * 1"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  actions: write
 
 jobs:
-  check:
+  propose:
     runs-on: ubuntu-24.04
-    outputs:
-      url: ${{ steps.latest.outputs.url }}
-      sha512: ${{ steps.latest.outputs.sha512 }}
-      changed: ${{ steps.latest.outputs.changed }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
-      - id: latest
+
+      - name: Compare with the newest QQ
+        id: latest
         run: |
           read -r url sha < <(scripts/latest-qq.sh)
           current=$(sed -n 's/^ARG QQ_URL=//p' Dockerfile)
-          echo "latest: $url"
+          version=$(basename "$url" .deb | sed 's/^linuxqq_//; s/_amd64$//')
           echo "current: $current"
+          echo "latest:  $url"
           {
             echo "url=$url"
             echo "sha512=$sha"
+            echo "version=$version"
+            echo "branch=update-qq/$version"
             echo "changed=$([ "$url" != "$current" ] && echo true || echo false)"
           } >> "$GITHUB_OUTPUT"
 
-  build:
-    needs: check
-    if: needs.check.outputs.changed == 'true'
-    uses: ./.github/workflows/build.yml
-    with:
-      qq_url: ${{ needs.check.outputs.url }}
-      qq_sha512: ${{ needs.check.outputs.sha512 }}
-    secrets: inherit
-
-  commit:
-    needs: [check, build]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-      - name: Pin the new QQ version
+      - name: Open a pull request
+        if: steps.latest.outputs.changed == 'true'
         run: |
-          url="${{ needs.check.outputs.url }}"
-          sha="${{ needs.check.outputs.sha512 }}"
-          sed -i "s|^ARG QQ_URL=.*|ARG QQ_URL=$url|; s|^ARG QQ_SHA512=.*|ARG QQ_SHA512=$sha|" Dockerfile
+          branch="${{ steps.latest.outputs.branch }}"
+          version="${{ steps.latest.outputs.version }}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists; its pull request is still open or was closed on purpose"
+            exit 0
+          fi
+          sed -i "s|^ARG QQ_URL=.*|ARG QQ_URL=${{ steps.latest.outputs.url }}|; s|^ARG QQ_SHA512=.*|ARG QQ_SHA512=${{ steps.latest.outputs.sha512 }}|" Dockerfile
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Update QQ to $(basename "$url" .deb | sed 's/^linuxqq_//; s/_amd64$//')"
-          git push
+          git switch -c "$branch"
+          git commit -am "Update QQ to $version" -m "Co-authored-by: Shiori <353202382+shio-sai@users.noreply.github.com>"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "Update QQ to $version" --body \
+            "$(printf 'The AUR linuxqq package moved to %s. Merging publishes a new image.\n\nCo-authored-by: Shiori <353202382+shio-sai@users.noreply.github.com>' "$version")"
+          # Pull requests opened with the workflow token don't start other
+          # workflows, so start the build on the branch by hand.
+          gh workflow run build.yml --ref "$branch"
