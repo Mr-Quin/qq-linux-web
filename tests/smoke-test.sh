@@ -12,8 +12,9 @@ config=$(mktemp -d)
 
 cleanup() {
     docker rm -f "$name" >/dev/null 2>&1 || true
-    docker run --rm -v "$config:/c" --entrypoint rm "$image" -rf /c/xdg /c/certs /c/log >/dev/null 2>&1 || true
-    rm -rf "$config"
+    # The container's files belong to its own user, so delete them from inside one.
+    docker run --rm -v "$config:/c" --entrypoint find "$image" /c -mindepth 1 -delete >/dev/null 2>&1 || true
+    rmdir "$config" 2>/dev/null || true
 }
 trap cleanup EXIT
 
