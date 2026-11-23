@@ -1,0 +1,56 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      qq_url:
+        type: string
+        default: ""
+      qq_sha512:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: |
+          args=()
+          if [ -n "${{ inputs.qq_url }}" ]; then
+            args+=(--build-arg "QQ_URL=${{ inputs.qq_url }}" --build-arg "QQ_SHA512=${{ inputs.qq_sha512 }}")
+          fi
+          docker build "${args[@]}" -t qq-linux-web:test .
+
+      - name: Smoke test
+        run: tests/smoke-test.sh qq-linux-web:test
+
+      - name: Read QQ version
+        id: version
+        run: echo "qq=$(docker run --rm --entrypoint dpkg-query qq-linux-web:test -W -f='${Version}' linuxqq)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_DOCKERHUB == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_DOCKERHUB == 'true'
+        run: |
+          image="${{ secrets.DOCKERHUB_USERNAME }}/qq-linux-web"
+          for tag in latest "${{ steps.version.outputs.qq }}"; do
+            docker tag qq-linux-web:test "$image:$tag"
+            docker push "$image:$tag"
+          done

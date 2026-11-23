@@ -1,0 +1,56 @@
+name: update-qq
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      url: ${{ steps.latest.outputs.url }}
+      sha512: ${{ steps.latest.outputs.sha512 }}
+      changed: ${{ steps.latest.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: latest
+        run: |
+          read -r url sha < <(scripts/latest-qq.sh)
+          current=$(sed -n 's/^ARG QQ_URL=//p' Dockerfile)
+          echo "latest: $url"
+          echo "current: $current"
+          {
+            echo "url=$url"
+            echo "sha512=$sha"
+            echo "changed=$([ "$url" != "$current" ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      qq_url: ${{ needs.check.outputs.url }}
+      qq_sha512: ${{ needs.check.outputs.sha512 }}
+    secrets: inherit
+
+  commit:
+    needs: [check, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Pin the new QQ version
+        run: |
+          url="${{ needs.check.outputs.url }}"
+          sha="${{ needs.check.outputs.sha512 }}"
+          sed -i "s|^ARG QQ_URL=.*|ARG QQ_URL=$url|; s|^ARG QQ_SHA512=.*|ARG QQ_SHA512=$sha|" Dockerfile
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update QQ to $(basename "$url" .deb | sed 's/^linuxqq_//; s/_amd64$//')"
+          git push

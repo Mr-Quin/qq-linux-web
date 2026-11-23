@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QQ notification forwarding</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #677085; --line: #e2e5eb;
+    --accent: #2f6fde; --ok: #1f8a4c; --bad: #c2382f; --warn: #a86a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2027; --text: #e4e7ee; --muted: #9098aa; --line: #2c323c;
+      --accent: #6b9bff; --ok: #4cc283; --bad: #ff7b70; --warn: #e3a63c;
+    }
+  }
+  * { box-sizing: border-box; }
+  a { color: var(--accent); }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", "Noto Sans CJK SC", sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 96px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 20px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+            padding: 16px; margin-bottom: 16px; }
+  .hint { color: var(--muted); font-size: 13px; margin: -6px 0 12px; }
+  input[type=text], textarea, select {
+    font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; }
+  input[type=text] { width: 100%; }
+  textarea { width: 100%; min-height: 84px; resize: vertical; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: inherit;
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 8px; }
+  .grow { flex: 1; min-width: 0; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 12px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line);
+         color: var(--muted); white-space: nowrap; }
+  .sent { color: var(--ok); } .dropped { color: var(--muted); } .failed { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12.5px; border-top: 0; }
+  td.num { color: var(--muted); text-align: right; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } .hide-narrow { display: none; } }
+  label.check { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .empty { color: var(--muted); padding: 8px 0; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel);
+           border-top: 1px solid var(--line); }
+  footer .row { max-width: 880px; margin: 0 auto; padding: 10px 16px; }
+  #status.dirty { color: var(--warn); } #status.error { color: var(--bad); } #status.ok { color: var(--ok); }
+</style>
+</head>
+<body>
+<main>
+  <h1>QQ notification forwarding</h1>
+  <p class="lead">Which QQ notifications are sent on, and where. Only the chat name and the
+    notification's text preview are ever sent.</p>
+
+  <section>
+    <h2>Destinations</h2>
+    <p class="hint">Any <a href="https://github.com/caronc/apprise/wiki" target="_blank" rel="noopener">Apprise URL</a>.
+      A Discord webhook URL works as is. Saved URLs are shown with their secrets hidden.</p>
+    <div id="destinations"></div>
+    <div class="row">
+      <input type="text" id="new-url" class="grow" placeholder="https://discord.com/api/webhooks/…" autocomplete="off">
+      <button id="test-new">Test</button>
+      <button id="add-url">Add</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Chats</h2>
+    <label class="check"><input type="checkbox" id="all-chats"> Forward every chat, except the ones set to ignore</label>
+    <table>
+      <thead><tr><th>Chat</th><th class="hide-narrow">Last notification</th><th class="hide-narrow">Count</th>
+        <th>Last result</th><th>Rule</th></tr></thead>
+      <tbody id="chats"></tbody>
+    </table>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="new-chat" class="grow" placeholder="Add a chat by name, exactly as QQ shows it">
+      <button id="add-chat">Add</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Keywords</h2>
+    <p class="hint">One per line, matched anywhere in the chat name or text, case-sensitive.</p>
+    <div class="cols">
+      <div><strong>Always forward</strong>
+        <p class="hint" style="margin:2px 0 6px">Even from ignored chats. <code>@我</code> catches mentions.</p>
+        <textarea id="forward-keywords"></textarea></div>
+      <div><strong>Always drop</strong>
+        <p class="hint" style="margin:2px 0 6px">Wins over everything else.</p>
+        <textarea id="ignore-keywords"></textarea></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Try the rules</h2>
+    <p class="hint">Checks the rules as they are on this page, including unsaved changes.</p>
+    <div class="row">
+      <input type="text" id="try-chat" class="grow" placeholder="Chat name">
+      <input type="text" id="try-text" class="grow" placeholder="Message text">
+      <button id="try">Check</button>
+    </div>
+    <div id="try-result" class="hint" style="margin:10px 0 0"></div>
+  </section>
+</main>
+
+<footer><div class="row">
+  <span id="status" class="grow"></span>
+  <button id="revert">Revert</button>
+  <button id="save" class="primary">Save</button>
+</div></footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let server = null;
+let draft = null;
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node[k] = v;
+  }
+  for (const c of children) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return node;
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin",
+  });
+  if (!(res.headers.get("Content-Type") || "").startsWith("application/json")) {
+    throw new Error("the login has expired; reload the page");
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function status(text, kind = "") {
+  $("status").textContent = text;
+  $("status").className = "grow " + kind;
+}
+
+function lines(text) {
+  return [...new Set(text.split("\n").map((s) => s.trim()).filter(Boolean))];
+}
+
+function rules() {
+  return {
+    forward: {
+      chats: [...(draft.all ? ["*"] : []), ...Object.keys(draft.rule).filter((c) => draft.rule[c] === "forward")],
+      keywords: lines($("forward-keywords").value),
+    },
+    ignore: {
+      chats: Object.keys(draft.rule).filter((c) => draft.rule[c] === "ignore"),
+      keywords: lines($("ignore-keywords").value),
+    },
+  };
+}
+
+function fromServer(state) {
+  server = state;
+  const rule = {};
+  for (const c of state.forward.chats) if (c !== "*") rule[c] = "forward";
+  for (const c of state.ignore.chats) rule[c] = "ignore";
+  draft = {
+    destinations: state.destinations.map((d) => ({ id: d.id, service: d.service, display: d.display })),
+    all: state.forward.chats.includes("*"),
+    rule,
+  };
+  $("forward-keywords").value = state.forward.keywords.join("\n");
+  $("ignore-keywords").value = state.ignore.keywords.join("\n");
+  render();
+  status("Saved settings loaded.");
+}
+
+function changed() {
+  status("Unsaved changes.", "dirty");
+}
+
+function ago(seconds) {
+  const s = Math.max(0, Date.now() / 1000 - seconds);
+  if (s < 90) return "just now";
+  if (s < 5400) return Math.round(s / 60) + " min ago";
+  if (s < 129600) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " days ago";
+}
+
+async function test(target, button) {
+  button.disabled = true;
+  const old = button.textContent;
+  button.textContent = "Sending…";
+  try {
+    const r = await api("POST", "api/test", target);
+    button.textContent = r.ok ? "Sent" : "Failed";
+  } catch (e) {
+    button.textContent = "Failed";
+    status(e.message, "error");
+  }
+  setTimeout(() => { button.textContent = old; button.disabled = false; }, 2500);
+}
+
+function render() {
+  const dests = $("destinations");
+  dests.replaceChildren();
+  if (!draft.destinations.length) dests.append(el("div", { class: "empty" }, "No destinations: nothing is sent."));
+  draft.destinations.forEach((d, i) => {
+    const target = "id" in d ? { id: d.id } : { url: d.url };
+    dests.append(el("div", { class: "row" },
+      el("span", { class: "tag" }, d.service),
+      el("span", { class: "mono grow", title: d.display }, d.display),
+      el("button", { onclick: (ev) => test(target, ev.target) }, "Test"),
+      el("button", { onclick: () => { draft.destinations.splice(i, 1); render(); changed(); } }, "Remove"),
+    ));
+  });
+
+  $("all-chats").checked = draft.all;
+  const seen = new Map(server.chats.map((c) => [c.chat, c]));
+  const names = [...new Set([...server.chats.map((c) => c.chat), ...Object.keys(draft.rule)])];
+  const body = $("chats");
+  body.replaceChildren();
+  if (!names.length) {
+    body.append(el("tr", {}, el("td", { colSpan: 5, class: "empty" },
+      "No QQ notifications yet. Chats show up here after their first notification.")));
+  }
+  for (const name of names) {
+    const c = seen.get(name);
+    const select = el("select", {
+      onchange: (ev) => {
+        if (ev.target.value === "default") delete draft.rule[name];
+        else draft.rule[name] = ev.target.value;
+        changed();
+      },
+    },
+      el("option", { value: "default" }, draft.all ? "Default (forward)" : "Default (drop)"),
+      el("option", { value: "forward" }, "Forward"),
+      el("option", { value: "ignore" }, "Ignore"));
+    select.value = draft.rule[name] || "default";
+    const result = c
+      ? el("span", { class: c.verdict === "sent" ? "sent" : c.verdict === "dropped" ? "dropped" : "failed",
+                     title: c.reason }, c.verdict)
+      : el("span", { class: "dropped" }, "none yet");
+    body.append(el("tr", {},
+      el("td", {}, name),
+      el("td", { class: "hide-narrow" }, c ? ago(c.last) : ""),
+      el("td", { class: "num hide-narrow" }, c ? c.count : ""),
+      el("td", {}, result),
+      el("td", {}, select)));
+  }
+}
+
+async function load() {
+  try {
+    fromServer(await api("GET", "api/state"));
+  } catch (e) {
+    status(e.message, "error");
+  }
+}
+
+$("add-url").onclick = () => {
+  const url = $("new-url").value.trim();
+  if (!url) return;
+  const service = url.split(":")[0];
+  draft.destinations.push({ url, service, display: url });
+  $("new-url").value = "";
+  render();
+  changed();
+};
+$("test-new").onclick = (ev) => {
+  const url = $("new-url").value.trim();
+  if (url) test({ url }, ev.target);
+};
+$("all-chats").onchange = (ev) => { draft.all = ev.target.checked; render(); changed(); };
+$("add-chat").onclick = () => {
+  const name = $("new-chat").value.trim();
+  if (!name) return;
+  if (!draft.rule[name]) draft.rule[name] = "forward";
+  $("new-chat").value = "";
+  render();
+  changed();
+};
+$("forward-keywords").oninput = changed;
+$("ignore-keywords").oninput = changed;
+$("try").onclick = async () => {
+  try {
+    const r = await api("POST", "api/check", { chat: $("try-chat").value, text: $("try-text").value, ...rules() });
+    $("try-result").replaceChildren(el("span", { class: r.send ? "sent" : "dropped" },
+      r.send ? "Would be sent" : "Would be dropped"), ": " + r.reason);
+  } catch (e) {
+    $("try-result").textContent = e.message;
+  }
+};
+$("revert").onclick = load;
+$("save").onclick = async () => {
+  $("save").disabled = true;
+  try {
+    const destinations = draft.destinations.map((d) => ("id" in d ? { id: d.id } : { url: d.url }));
+    fromServer(await api("PUT", "api/settings", { version: server.version, destinations, ...rules() }));
+    status("Saved. The forwarder uses the new settings from the next notification.", "ok");
+  } catch (e) {
+    status("Not saved: " + e.message, "error");
+  } finally {
+    $("save").disabled = false;
+  }
+};
+
+load();
+</script>
+</body>
+</html>

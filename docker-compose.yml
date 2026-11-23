@@ -1,0 +1,27 @@
+services:
+  qq:
+    image: DOCKERHUB_USER/qq-linux-web:latest
+    container_name: qq
+    hostname: qq
+    environment:
+      - USER_ID=1000
+      - GROUP_ID=1000
+      - TZ=Asia/Shanghai
+      - WEB_AUTHENTICATION=1
+      - WEB_AUTHENTICATION_USERNAME=qq
+      - WEB_AUTHENTICATION_PASSWORD=change-me
+    volumes:
+      - ./data:/config
+      # QQ treats a new machine-id or MAC address as a new device and asks the
+      # phone to confirm the login again, so pin both.
+      - ./machine-id:/etc/machine-id:ro
+      - ./machine-id:/var/lib/dbus/machine-id:ro
+    mac_address: 02:42:ac:11:00:02
+    ports:
+      - "5800:5800"
+    shm_size: 1gb
+    # QQ's Chromium sandbox needs clone with namespace flags, which Docker's
+    # default seccomp profile blocks.
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped

@@ -1,0 +1,7 @@
+.git
+.github
+tests
+scripts
+*.md
+LICENSE
+docker-compose.yml

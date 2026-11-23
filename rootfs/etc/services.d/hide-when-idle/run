@@ -1,0 +1,30 @@
+#!/bin/sh
+# QQ only sends desktop notifications while its window is hidden, and with no
+# desktop around it the window is otherwise always on screen. Minimize QQ while
+# nobody has the web page open, and bring it back as soon as someone does.
+# Every viewer is a connected socket on Xvnc's /tmp/vnc.sock.
+
+export DISPLAY=:0
+grace=10
+idle=0
+hidden=""
+
+viewers() {
+    awk '$6 == "03" && $8 == "/tmp/vnc.sock"' /proc/net/unix | wc -l
+}
+
+while sleep 2; do
+    if [ "$(viewers)" -gt 0 ]; then
+        idle=0
+        for w in $hidden; do
+            xdotool windowactivate "$w" 2>/dev/null
+        done
+        hidden=""
+        continue
+    fi
+    idle=$((idle + 2))
+    [ "$idle" -ge "$grace" ] || continue
+    for w in $(xdotool search --onlyvisible --class QQ 2>/dev/null); do
+        xdotool windowminimize "$w" 2>/dev/null && hidden="$hidden $w"
+    done
+done
