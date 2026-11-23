@@ -53,8 +53,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Pinned QQ version
+        id: pin
+        run: echo "sha512=$(sed -n 's/^ARG QQ_SHA512=//p' Dockerfile)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: .cache/qq
+          key: qq-deb-${{ steps.pin.outputs.sha512 }}
+
+      - name: Fetch QQ
+        run: scripts/fetch-qq.sh .cache/qq
+
       - name: Build
-        run: docker build -t qq-linux-web:test .
+        run: docker build --build-context qq-deb=.cache/qq -t qq-linux-web:test .
 
       - name: Smoke test
         run: tests/smoke-test.sh qq-linux-web:test
