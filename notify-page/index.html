@@ -307,7 +307,11 @@ $("try").onclick = async () => {
   }
 };
 $("revert").onclick = load;
+$("new-url").oninput = changed;
+$("new-chat").oninput = changed;
 $("save").onclick = async () => {
+  $("add-url").click();
+  $("add-chat").click();
   $("save").disabled = true;
   try {
     const destinations = draft.destinations.map((d) => ("id" in d ? { id: d.id } : { url: d.url }));
