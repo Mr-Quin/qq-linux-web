@@ -47,10 +47,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git commit -am "Update QQ to $version"
+          git commit -am "Update QQ to $version" -m "Co-authored-by: Shiori <353202382+shio-sai@users.noreply.github.com>"
           git push origin "$branch"
           gh pr create --base main --head "$branch" --title "Update QQ to $version" --body \
-            "The AUR linuxqq package moved to $version. Merging publishes a new image."
+            "$(printf 'The AUR linuxqq package moved to %s. Merging publishes a new image.\n\nCo-authored-by: Shiori <353202382+shio-sai@users.noreply.github.com>' "$version")"
           # Pull requests opened with the workflow token don't start other
           # workflows, so start the build on the branch by hand.
           gh workflow run build.yml --ref "$branch"

@@ -134,8 +134,8 @@ uv run pytest
 uv run ruff check src tests
 
 bun install
-bunx playwright install chromium
-bunx playwright test
+bun --bun x playwright install chromium
+bun run test:e2e
 
 docker build -t qq-linux-web:dev .
 tests/smoke-test.sh qq-linux-web:dev

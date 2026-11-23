@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:e2e": "playwright test"
+    "test:e2e": "bun --bun playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
-    "@types/node": "^24"
+    "@types/bun": "^1"
   }
 }

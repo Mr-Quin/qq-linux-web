@@ -35,8 +35,8 @@ jobs:
       - uses: jdx/mise-action@v5
       - run: uv sync --locked
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
-      - run: bunx playwright test
+      - run: bun --bun x playwright install --with-deps chromium
+      - run: bun run test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
