@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans CJK SC', 'Microsoft YaHei', 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#64748b"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#16a34a"/>
+    </marker>
+  </defs>
+  <style>
+    .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+    .qq { fill: #eff6ff; stroke: #3b82f6; stroke-width: 1.5; }
+    .fwd { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.5; }
+    .t { font-size: 15px; font-weight: 600; fill: #0f172a; }
+    .s { font-size: 12px; fill: #475569; }
+    .l { font-size: 12px; fill: #64748b; }
+    .lg { font-size: 12px; fill: #15803d; }
+    .line { stroke: #64748b; stroke-width: 1.5; fill: none; }
+    .gline { stroke: #16a34a; stroke-width: 1.5; fill: none; }
+  </style>
+
+  <rect width="900" height="340" rx="14" fill="#f8fafc"/>
+
+  <!-- browser -->
+  <rect class="box" x="24" y="70" width="140" height="150" rx="10"/>
+  <text class="t" x="94" y="104" text-anchor="middle">浏览器</text>
+  <text class="s" x="94" y="132" text-anchor="middle">QQ 窗口</text>
+  <text class="s" x="94" y="152" text-anchor="middle">/notify/ 设置页</text>
+  <text class="l" x="94" y="198" text-anchor="middle">任何设备</text>
+
+  <!-- container -->
+  <rect x="210" y="24" width="440" height="292" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text class="l" x="226" y="46">Docker 容器</text>
+
+  <rect class="box" x="234" y="70" width="150" height="150" rx="10"/>
+  <text class="t" x="309" y="104" text-anchor="middle">网页界面</text>
+  <text class="s" x="309" y="132" text-anchor="middle">HTTPS :5800</text>
+  <text class="s" x="309" y="152" text-anchor="middle">登录 · 远程画面</text>
+
+  <rect class="qq" x="464" y="70" width="162" height="80" rx="10"/>
+  <text class="t" x="545" y="104" text-anchor="middle">Linux QQ</text>
+  <text class="s" x="545" y="126" text-anchor="middle">官方安装包，未修改</text>
+
+  <rect class="fwd" x="464" y="210" width="162" height="80" rx="10"/>
+  <text class="t" x="545" y="244" text-anchor="middle">通知转发</text>
+  <text class="s" x="545" y="266" text-anchor="middle">按聊天和关键词过滤</text>
+
+  <!-- browser <-> web ui -->
+  <path class="line" d="M164 145H232" marker-start="url(#a)" marker-end="url(#a)"/>
+
+  <!-- web ui <-> qq -->
+  <path class="line" d="M384 110H462" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text class="l" x="423" y="100" text-anchor="middle">画面</text>
+
+  <!-- web ui -> settings -->
+  <path class="line" d="M330 220V250H462" marker-end="url(#a)"/>
+  <text class="l" x="396" y="242" text-anchor="middle">/notify/</text>
+
+  <!-- qq -> forwarder -->
+  <path class="gline" d="M545 150V208" marker-end="url(#g)"/>
+  <text class="lg" x="553" y="184">桌面通知</text>
+
+  <!-- forwarder -> apprise -->
+  <path class="gline" d="M626 250H700" marker-end="url(#g)"/>
+
+  <rect class="fwd" x="702" y="210" width="96" height="80" rx="10"/>
+  <text class="t" x="750" y="255" text-anchor="middle">Apprise</text>
+
+  <path class="gline" d="M798 236L830 196" marker-end="url(#g)"/>
+  <path class="gline" d="M798 250H830" marker-end="url(#g)"/>
+  <path class="gline" d="M798 264L830 304" marker-end="url(#g)"/>
+  <text class="s" x="836" y="194">Discord</text>
+  <text class="s" x="836" y="254">Telegram</text>
+  <text class="s" x="836" y="314">ntfy …</text>
+</svg>
